@@ -1,0 +1,5 @@
+# /etc/xdg/lxsession/LXDE-pi/autostart
+@xset s off
+@xset -dpms
+@xset -s noblank
+@chromium-browser --kiosk  http://kremvax:9998/hls.html
