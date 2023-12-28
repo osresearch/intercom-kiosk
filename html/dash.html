@@ -1,0 +1,26 @@
+<html>
+<head>
+<script src="http://cdn.dashjs.org/latest/dash.all.min.js"></script>
+</head>
+<body
+	style="background-color: #000;"
+>
+
+        <!-- <video data-dashjs-player width=640 height=480 src="/stream/dash/frontdoor.mpd"></video> -->
+        <video width=640 height=460></video>
+
+<script>
+	url = "/stream/dash/frontdoor.mpd";
+	video = document.querySelector("video");
+	player = dashjs.MediaPlayer().create();
+	player.initialize(video, url, true);
+        player.updateSettings({ 'streaming': {
+		'lowLatencyEnabled': true,
+                'liveDelay': 0,
+                'liveCatchUpMinDrift': 0,
+                'liveCatchUpPlaybackRate': 0,
+	}});
+	player.setMute(true);
+	player.play(true);
+</script>
+</html>
