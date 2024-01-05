@@ -106,6 +106,13 @@ def flv_read(fp):
 			flv_last_buf = pkt_buf
 			flv_last_timestamp = pkt_header["timestamp"]
 
+#
+# Use the local ffmpeg to transcode the 4k FLV stream from the
+# camera into a more managable resolution for the small screens
+# and also make every frame an I-frame. this means that the
+# reader can start at any point and drop any frames without
+# leading to mpeg artifacts, at the expense of a little bandwidth.
+#
 def ffmpeg_stream(url):
 	with subprocess.Popen([
 		"/usr/bin/ffmpeg",
@@ -129,7 +136,7 @@ def ffmpeg_stream(url):
 
 # send a HTTP chunk encoded packet to the client
 def chunk_write(wfile, chunk):
-	chunk = b'%X\r\n' % (len(chunk)) + chunk + b'\r\n'
+	#chunk = b'%X\r\n' % (len(chunk)) + chunk + b'\r\n'
 	wfile.write(chunk)
 	wfile.flush()
 	return
@@ -159,9 +166,11 @@ class CorsProxy(SimpleHTTPRequestHandler):
 		if path != "flv":
 			return super().do_GET()
 
+		# ARM flv.js on chromium doesn't like chunked encoding, so
+		# don't use it...
 		self.send_response(200)
 		self.send_header('Content-type', 'video/x-flv')
-		self.send_header('Transfer-Encoding', 'chunked')
+		#self.send_header('Transfer-Encoding', 'chunked')
 		self.send_header('Connection', 'keep-alive')
 		self.send_header('Expires', '-1')
 		#self.send_header('X-Frame-Options', 'SAMEORIGIN')
@@ -172,6 +181,7 @@ class CorsProxy(SimpleHTTPRequestHandler):
 
 		# send the flv header if we have one
 		for buf in flv_headers:
+			#print("sending header", hexlify(buf[0:16]), file=sys.stderr)
 			chunk_write(self.wfile, buf)
 			time.sleep(0.01)
 		last_timestamp = 0
@@ -181,7 +191,11 @@ class CorsProxy(SimpleHTTPRequestHandler):
 				time.sleep(0.05)
 				continue
 			last_timestamp = flv_last_timestamp
-			chunk_write(self.wfile, flv_last_buf)
+			try:
+				chunk_write(self.wfile, flv_last_buf)
+			except Exception as e:
+				self.log_message("connection closed")
+				return
 
 # create a thread for the http server
 server_address = ('10.0.0.1', 9999)
