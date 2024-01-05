@@ -1,0 +1,192 @@
+#!/usr/bin/python3
+# Proxy the video feed the various dashboards
+# https://en.wikipedia.org/wiki/Flash_Video
+# note that the "size of previous packet" is sent not on the
+# new chunk, but at the end of the previous chunk.  this makes
+# life quite a bit simpler since the chunks can be filtered
+# without having to rewrite them..
+
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlparse
+from binascii import hexlify, unhexlify
+import re
+import requests
+import sys
+import subprocess
+import time
+from threading import Thread
+
+video_url = "https://10.1.0.175/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=user&password=viewer"
+
+# the ffmpeg decoding thread will cache the packets as they
+# come in so that new clients can receive the header and meta data
+# and then whatever is the current video packet
+flv_headers = []
+flv_last_buf = None
+flv_last_timestamp = None
+
+
+def u32(buf):
+	return 0 \
+		| (buf[0] << 24) \
+		| (buf[1] << 16) \
+		| (buf[2] <<  8) \
+		| (buf[3] <<  0) \
+
+def u24(buf):
+	return 0 \
+		| (buf[0] << 16) \
+		| (buf[1] <<  8) \
+		| (buf[2] <<  0) \
+
+
+def flv_parse(buf):
+	if buf[0] == 0x46:
+		# File header
+		return {
+			"signature": buf[0:3],
+			"version": buf[3],
+			"flags": buf[4],
+			"header_size": u32(buf[5:9]),
+		}
+	else:
+		# normal packet header
+		return  {
+			"type": buf[0],
+			"size": u24(buf[1:4]),
+			"timestamp": u24(buf[4:7]) | (buf[7] << 24),
+			"stream": u24(buf[8:11]),
+			#"total_size": u32(buf[-4:]),
+		}
+
+# invoke ffmpeg to resize the stream into something more managable
+# this does involve parsing the FLV as it is produced so that we
+# can re-stream it to the client
+def flv_read(fp):
+	global flv_headers, flv_last_buf, flv_last_timestamp
+
+	# process the header specially
+	flv_header_buf = fp.read(9)
+	flv_header = flv_parse(flv_header_buf)
+	print(flv_header)
+
+	if flv_header["header_size"] != 9:
+		# read some extra
+		flv_header_buf += fp.read(flv_header["header_size"] - 9)
+
+	# and read the extra 4 bytes of length,
+	flv_header_buf += fp.read(4)
+	flv_headers = [flv_header_buf, None, None, None]
+
+	while True:
+		pkt_buf = fp.read(11)
+		pkt_header = flv_parse(pkt_buf)
+
+		# this includes the total length at the end
+		pkt_buf += fp.read(pkt_header["size"] + 4)
+
+		if pkt_header["type"] == 0x08:
+			# throw away the audio
+			continue
+
+		if pkt_header["type"] == 0x09:
+			# keep the ones that are of NAL type 0x17
+			if pkt_buf[11] == 0x17:
+				if len(pkt_buf) < 100:
+					# something about the codecs
+					print(pkt_header, hexlify(pkt_buf[11:11+32]));
+					flv_headers[2] = pkt_buf
+				else:
+					## periodic iframe?
+					flv_headers[3] = pkt_buf
+
+		if pkt_header["type"] == 0x12:
+			flv_headers[1] = pkt_buf
+		else:
+			flv_last_buf = pkt_buf
+			flv_last_timestamp = pkt_header["timestamp"]
+
+def ffmpeg_stream(url):
+	with subprocess.Popen([
+		"/usr/bin/ffmpeg",
+		"-i", url,
+		#"-c:a", "copy",
+		"-an", # no audio
+		"-c:v", "h264",
+		"-intra", # iframe only
+		"-vf", "scale=800x480",
+		"-f", "flv",
+		"-",
+	],
+		stderr=sys.stderr,
+		stdout=subprocess.PIPE,
+		text=False
+	) as proc:
+		flv_read(proc.stdout)
+
+
+################
+
+# send a HTTP chunk encoded packet to the client
+def chunk_write(wfile, chunk):
+	chunk = b'%X\r\n' % (len(chunk)) + chunk + b'\r\n'
+	wfile.write(chunk)
+	wfile.flush()
+	return
+
+# Also spin up a HTTP server to proxy requests to MQTT
+#class MqttServer(BaseHTTPRequestHandler):
+class CorsProxy(SimpleHTTPRequestHandler):
+	def fail(self, msg):
+		self.send_response(401)
+		self.send_header('Content-type', 'text/html')
+		self.end_headers()
+		self.wfile.write(msg.encode())
+
+	def do_GET(self):
+		url = urlparse(self.path)
+		query = url.query
+		path = url.path[1:]  # strip leading /
+
+		print("GET path=", path)
+
+		if path == "":
+			self.send_response(302)
+			self.send_header('Location', 'html/automation.html')
+			self.end_headers()
+			return
+
+		if path != "flv":
+			return super().do_GET()
+
+		self.send_response(200)
+		self.send_header('Content-type', 'video/x-flv')
+		self.send_header('Transfer-Encoding', 'chunked')
+		self.send_header('Connection', 'keep-alive')
+		self.send_header('Expires', '-1')
+		#self.send_header('X-Frame-Options', 'SAMEORIGIN')
+		#self.send_header('X-XSS-Protection', '1; mode=block')
+		#self.send_header('X-Content-Type-Options', 'nosniff')
+		self.send_header('Access-Control-Allow-Origin', '*')
+		self.end_headers()
+
+		# send the flv header if we have one
+		for buf in flv_headers:
+			chunk_write(self.wfile, buf)
+			time.sleep(0.01)
+		last_timestamp = 0
+
+		while True:
+			if last_timestamp == flv_last_timestamp:
+				time.sleep(0.05)
+				continue
+			last_timestamp = flv_last_timestamp
+			chunk_write(self.wfile, flv_last_buf)
+
+# create a thread for the http server
+server_address = ('10.0.0.1', 9999)
+httpd = ThreadingHTTPServer(server_address, CorsProxy)
+Thread(target=httpd.serve_forever).start()
+
+ffmpeg_stream(video_url)
+#flv_read(sys.stdin.buffer)

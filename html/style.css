@@ -15,11 +15,12 @@ body {
 #date {
 	font-size: 64px;
 	text-align: right;
+	margin-right: 30px;
 }
 
 .page {
-	width: 790px;
-	height: 380px;
+	width: 100%;
+	height: 75%;
 }
 
 .page-selector {
@@ -28,21 +29,22 @@ body {
 	border-style: solid;
 	border-width: 1px;
 	border-color: #222;
+	border-radius: 30px;
 }
 
  /* The switch - the box around the slider */
 .switch {
-  position: relative;
-  display: inline-block;
-  width: 60px;
-  height: 34px;
+	position: relative;
+	display: inline-block;
+	width: 60px;
+	height: 34px;
 }
 
 /* Hide default HTML checkbox */
 .switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
+	opacity: 0;
+	width: 0;
+	height: 0;
 }
 
 /* The slider */
@@ -94,19 +96,31 @@ input:checked + .slider:before {
 } 
 
 input[type="range"] {
-  x-height: 50px;
-  width: 380px;
-	margin-top: 00px;
+	x-height: 50px;
+	width: 100%;
+	margin-top: 0px;
 }
 
 .light-slider {
+	float: left;
+	width: 40%;
 	text-align: center;
-	margin-top: 10px;
-	margin-bottom: 30px;
+	margin-top: 2%;
+	margin-bottom: 5%;
+	margin-left: 5%;
+	margin-right: 5%;
 }
 
 .scene-button {
 	font-size: 30px;
-	width: 250px;
-	height: 100;
+	width: 46%;
+	border-radius: 20px;
+	margin-top: 2%;
+	margin-bottom: 2%;
+	margin-left: 2%;
+	margin-right: 2%;
+	height: 22%;
+	background: #222;
+	color: #fff;
+	border: 0px;
 }

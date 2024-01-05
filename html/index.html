@@ -1,18 +1,232 @@
 <html>
 <head>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/flv.js/1.3.2/flv.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flv.js/1.3.2/flv.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.0/dist/svg.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.3.3/dist/mqtt.min.js"></script>
+<script src="mqtt.js"></script>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet"
+	href="https://fonts.googleapis.com/css2?family=B612">
 </head>
-<body
-	style="background-color: #000;"
->
+<body>
+<datalist id="markers">
+	<option value="0"></option>
+	<option value="64"></option>
+	<option value="128"></option>
+	<option value="190"></option>
+	<option value="255"></option>
+</datalist>
 
-        <video id="videoElement" width=640 height=480></video>
+<!-- Major displays at the top of the screen -->
+<div id="top">
+	<div id="clock" class="page">
+		<div id=time>HH:MM:SS</div>
+		<div id=date>YYYY-MM-DD</div>
+	</div>
+	<div id="weather" class="page" style="display: none;">
+		<span class="mqtt" topic="weather/current#main.temp" format="roundfunc(1)">10.99</span>&deg;C
+		(Feels like <span class="mqtt" topic="weather/current#main.feels_like" format="roundfunc(1)">xxx</span>&deg;C)
+		<br/>
+		Rain
+		<span class="mqtt" topic="weather/current#rain['1h']" format="roundfunc(1)" optional default=0>xxx</span>mm
+		<br/>
+		Wind
+		<span class="mqtt" topic="weather/current#wind.deg">xxx</span>&deg; @ 
+		<span class="mqtt" topic="weather/current#wind.speed">xxx</span> m/s
+		<br/>
+		 <span class="mqtt" topic="weather/current#sys.sunrise" format="localtime">XX:XX</span> Sunrise
+		<br/>
+		<span class="mqtt" topic="weather/current#sys.sunset" format="localtime">XX:XX</span> Sunset
+		<span class="mqtt" topic="weather/forecast" update="weather_plot"></span>
+
+	</div>
+	<div id="lights" class="page" style="display: none;">
+		<!-- will be filled in by the script below -->
+	</div>
+	<div id="macros" class="page" style="display: none;">
+		<!-- will be filled in by the script below -->
+	</div>
+</div>
+<div id="video_page" class="page" style="display: none; position: absolute; top: 0px; left: 0px; height: 100%; width: 100%;">
+	<!-- will be filled in by the full screen script below -->
+</div>
+
+<!-- Selector buttons at the bottom of the screen -->
+<table width="100%" height="25%">
+<tr>
+<td width="25%" id="video_button" class="page-selector">
+	<video id="video" class="center" width="100%" height="100%" onclick="video_resize()" />
+</td>
+<td width="25%" onclick="page_show('lights')" class="page-selector">
+	<span class="mqtt" topic="p1meter/sensor/actual_consumption_sensor/state" format="(x)=>(x/1000).toFixed(1)">???</span> kW
+</td>
+<td width="25%" onclick="page_show('weather')" class="page-selector">
+	<span class="mqtt" topic="weather/current#main.temp" format="roundfunc(1)">Deg</span>&deg;C</td>
+<td width="25%" onclick="page_show('macros')" class="page-selector">Macros</td>
+</tr>
+</table>
+
+
+<!-- <div id="lights" style="width: 800px; height: 400px; background: #111; white-space: nowrap;" /> -->
+
 <script>
+function localtime(epoch)
+{
+	return new Date(epoch * 1000).toTimeString().substr(0,8);
+}
+function roundfunc(digits)
+{
+	return (x) => parseFloat(x).toFixed(digits);
+}
+
+let weather_svg = null;
+function weather_plot(el,topic,message)
+{
+	//el.deleteChildren();
+	let width = 750;
+	if (weather_svg)
+		weather_svg.remove();
+	let svg = weather_svg = SVG().addTo(el).size(width,200);
+	let mins = [];
+	let maxs = [];
+	let temp = [];
+	let count = message.list.length;
+	let x = 0;
+	let g = svg.group();
+
+	// build the polygon for the min/max ranges
+	for(let entry of message.list)
+	{
+		temp.push([x,entry.main.temp]);
+		//mins.push([x,entry.main.temp_min]);
+		//maxs.unshift([x,entry.main.temp_max]);
+		x += width / count;
+	}
+
+	let ranges = mins.concat(maxs);
+	console.log(ranges);
+	//svg.polygon(ranges).fill('#0f8').stroke({width: 1, color: "#008"}).scale([1,8]);
+	g.polyline(temp).fill('none').stroke({width: 1, color: "#fff"});
+	g.line(0,20, width, 20).stroke({width: 0.2, color: "#333"});
+	g.line(0,10, width, 10).stroke({width: 0.2, color: "#333"});
+	g.line(0,0, width, 0).stroke({width: 0.2, color: "#888"});
+
+	g.scale([1,5]);
+}
+
+var page_show_timeout = null;
+function page_show(name)
+{
+	console.log("showing", name);
+	for(let page of document.querySelectorAll(".page"))
+	{
+		if (page.id == name)
+			page.style.display = "block";
+		else
+			page.style.display = "none";
+	}
+
+	if (page_show_timeout)
+		window.clearTimeout(page_show_timeout);
+		
+	// return to the clock after a while at idle
+	if (name != "clock")
+		page_show_timeout = window.setTimeout(() => page_show("clock"), 10e3);
+}
+
+function time_update()
+{
+	const now = new Date();
+	document.getElementById("time").innerText = now.toTimeString().substr(0,5);
+	document.getElementById("date").innerText = now.toISOString().substr(0,10);
+	window.setTimeout(time_update, 10000);
+}
+time_update();
+	
+
+let lights = document.getElementById("lights");
+
+for(let light of [
+	["light-1-spheres","Table" ],
+	["light-1-kitchen", "Kitchen"],
+	["light-1-dining", "Dining"],
+	["light-0-entry", "Entry"],
+/*
+	["light-2-office", "Office"],
+	["light-2-craftroom", "Craft room"],
+	["light-3-bedroom", "Bedroom"],
+	["light-3-closet", "Closet"],
+	["light-3-shower", "Shower"],
+	["light-3-bathroom", "WC"],
+*/
+])
+{
+	mqtt_create_light(lights, light[0], light[1]);
+}
+
+for(let outlet of ["outlet-3-amps"])
+{
+	mqtt_create_outlet(lights, outlet, outlet);
+}
+
+
+let macros = document.getElementById("macros");
+for(let scene of [
+	["guests", "Entryway"],
+	["alloff", "All Off"],
+	["intermission", "Intermission"],
+	["movietime", "Movie Time"],
+	["dining", "Dinner"],
+	["breakfats", "Breakfast"],
+])
+{
+	mqtt_create_button(macros, scene[0], scene[1]);
+}
+</script>
+
+
+<br>
+
+<!--
+<input id="brightness" type="range" class="mqtt big" topic="brightness" sendtopic="brightness/set" min=0 max=255 list="markers"/>
+<label for="brightness">Brightness</label>
+-->
+
+<script>
+mqtt_bind()
+</script>
+
+<script>
+// toggle between a small and large video feed
+let video_fullscreen = false;
+let video_timeout = null;
+function video_resize()
+{
+	let video = document.getElementById("video");
+	let video_page = document.getElementById("video_page");
+	let video_button = document.getElementById("video_button");
+
+	if (video_fullscreen)
+	{
+		console.log("shrinking");
+		video_page.style.display = "none";
+		video_button.appendChild(video);
+		video_fullscreen = false;
+		window.clearTimeout(video_timeout);
+	} else {
+		//video.requestFullscreen();
+		console.log("full screen");
+		video_page.style.display = "block";
+		video_page.appendChild(video);
+		video_fullscreen = true;
+		video_timeout = window.setTimeout(video_resize, 10e3);
+	}
+}
     if (flvjs.isSupported()) {
-        var videoElement = document.getElementById('videoElement');
+        var videoElement = document.getElementById('video');
         var flvPlayer = flvjs.createPlayer({
             type: 'flv',
-            url: '/stream/hls/frontdoor.m3u8',
+            url: 'http://kremvax:9999/flv',
             //url: "https://10.1.0.175/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=user&password=viewer",
             //url: 'http://10.0.0.1:9998/',
 	    //cors: false,
@@ -25,9 +239,4 @@
     }
 
 </script>
-<!--
-<a href="javascript:flvPlayer.play()">Play</a>
-
-        <img src="https://10.1.0.175/cgi-bin/api.cgi?cmd=Snap&channel=0&user=user&password=viewer" width=640 height=480/>
--->
 </html>

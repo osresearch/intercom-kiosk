@@ -5,6 +5,8 @@ Reolink camera FLV video stream adapter.
 
 Pi startup scripts are in `/etc/xdg/lxsession/LXDE-pi/autostart`
 
+Pi needs `xdotool`
+
 
 ```
 00000000:
@@ -40,6 +42,49 @@ Pi startup scripts are in `/etc/xdg/lxsession/LXDE-pi/autostart`
 00000130: 88 80 01 00 00 27 f6 fd 4a 4e 6c a0 bb 63 ca 1a  .....'..JNl..c..
 ```
 
+## ffmpeg
+
+To stream via nginx via HLS, which unfortunately adds 30 seconds of latency:
 ```
 ffmpeg -i 'https://10.1.0.175/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=user&password=viewer' -c:a copy -c:v h264 -vf scale=800x480 -f flv rtmp://localhost/live/frontdoor
 ```
+
+To stream via FLV, which only supports one client and exits when the client exits:
+```
+```
+
+## Backlight
+
+backlight for HDMI connected displays:
+```
+ddcutil setvcp 10 0
+```
+
+backlight for DPI connected displays:
+```
+echo 0 | sudo tee /sys/class/backlight/something
+```
+
+## buildroot
+
+using stable version 2023.11
+
+this patch is required https://patchwork.ozlabs.org/project/buildroot/patch/20231025205233.1925727-1-kadir.c.yilmaz@gmail.com/
+
+this is broken https://www.mail-archive.com/debian-qt-kde@lists.debian.org/msg107425.html
+the patch to add iterator fixes it ? https://www.mail-archive.com/debian-bugs-dist@lists.debian.org/msg1900409.html
+
+reducing the number of parallel jobs prevents machine death
+due to too many `jumbo_X.cxx` files being compiled simultaneously.
+
+`setup_signal_handlers` isn't declared?  https://wiki.linuxfromscratch.org/blfs/ticket/16377
+
+qssl https://lists.buildroot.org/pipermail/buildroot/2022-February/637580.html
+
+rolling back to longeterm 2023.02.8
+
+almost aeverything works, except wekbit kiosk
+h -Fla !tps://lists.buildroot.org/pipermail/buildroot/2022-June/644924.html
+
+must patch *before* building, otherwise it won't be re-applied
+
