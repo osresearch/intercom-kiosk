@@ -21,7 +21,7 @@ video_url = "https://10.1.0.175/flv?port=1935&app=bcs&stream=channel0_main.bcs&u
 # the ffmpeg decoding thread will cache the packets as they
 # come in so that new clients can receive the header and meta data
 # and then whatever is the current video packet
-flv_headers = []
+flv_headers = None
 flv_last_buf = None
 flv_last_timestamp = None
 
@@ -179,7 +179,10 @@ class CorsProxy(SimpleHTTPRequestHandler):
 		self.send_header('Access-Control-Allow-Origin', '*')
 		self.end_headers()
 
-		# send the flv header if we have one
+		# wait for the FLV headers to be populated
+		while not flv_headers or not flv_headers[3]:
+			time.sleep(0.1)
+
 		for buf in flv_headers:
 			#print("sending header", hexlify(buf[0:16]), file=sys.stderr)
 			chunk_write(self.wfile, buf)
@@ -188,7 +191,7 @@ class CorsProxy(SimpleHTTPRequestHandler):
 
 		while True:
 			if last_timestamp == flv_last_timestamp:
-				time.sleep(0.05)
+				time.sleep(0.01)
 				continue
 			last_timestamp = flv_last_timestamp
 			try:

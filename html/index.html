@@ -200,6 +200,8 @@ mqtt_bind()
 // toggle between a small and large video feed
 let video_fullscreen = false;
 let video_timeout = null;
+let flvPlayer = null;
+
 function video_resize()
 {
 	let video = document.getElementById("video");
@@ -222,21 +224,46 @@ function video_resize()
 		video_timeout = window.setTimeout(video_resize, 10e3);
 	}
 }
-    if (flvjs.isSupported()) {
-        var videoElement = document.getElementById('video');
-        var flvPlayer = flvjs.createPlayer({
-            type: 'flv',
-            url: 'http://kremvax:9999/flv',
-            //url: "https://10.1.0.175/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=user&password=viewer",
-            //url: 'http://10.0.0.1:9998/',
-	    //cors: false,
-	    //hasAudio: false,
+
+
+function video_restart(videoElement)
+{
+	if (flvPlayer)
+	{
+		flvPlayer.unload();
+		flvPlayer.destroy();
+		flvPlayer = null;
+	}
+
+	flvPlayer = flvjs.createPlayer({
+		type: 'flv',
+		url: 'http://kremvax:9999/flv',
+		isLive: true,
         });
-        flvPlayer.attachMediaElement(videoElement);
-        flvPlayer.load();
+
+	flvPlayer.on('error', (x) => {
+		console.log("flv player failed, will try again in 5 seconds");
+		window.setTimeout(() => video_restart(videoElement), 5000);
+	})
+	
+	flvPlayer.attachMediaElement(videoElement);
 	flvPlayer.muted = true; // to avoid autoplay restrictions
-        flvPlayer.play();
-    }
+        flvPlayer.load();
+        flvPlayer.play().catch((e) => {
+		console.log("playback failed for some reason");
+		//window.setTimeout(() => video_restart(videoElement), 5000);
+	});
+
+}
+
+if (flvjs.isSupported())
+{
+	video.addEventListener('ended', (x) => {
+		console.log("VIDEO ENDED", x);
+		window.setTimeout(() => video_restart(video), 5000);
+	})
+	video_restart(video);
+}
 
 </script>
 </html>
