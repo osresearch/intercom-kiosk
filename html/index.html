@@ -4,6 +4,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.0/dist/svg.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <script src="https://unpkg.com/mqtt@5.3.3/dist/mqtt.min.js"></script>
+<script src="mpegts.js"></script>
 <script src="mqtt.js"></script>
 <script src="forecast.js"></script>
 <link rel="stylesheet" href="style.css">
@@ -26,6 +27,7 @@
 		<div id=date>YYYY-MM-DD</div>
 	</div>
 	<div id="weather" class="page" style="display: none;">
+		<button style="position: absolute; right: 800px; top: 0;" onclick="window.location.reload()">Reload page</button>
 		<span class="mqtt" topic="weather/current#main.temp" format="roundfunc(1)">XX.YY</span>&deg;C
 		(Feels like <span class="mqtt" topic="weather/current#main.feels_like" format="roundfunc(1)">xxx</span>&deg;C)
 		<br/>
@@ -36,12 +38,10 @@
 		<span class="mqtt" topic="weather/current#wind.deg">xxx</span>&deg; @ 
 		<span class="mqtt" topic="weather/current#wind.speed">xxx</span> m/s
 		<br/>
-		 <span class="mqtt" topic="weather/current#sys.sunrise" format="localtime">XX:XX</span> Sunrise
-		<br/>
+		 <span class="mqtt" topic="weather/current#sys.sunrise" format="localtime">XX:XX</span> Sunrise / 
 		<span class="mqtt" topic="weather/current#sys.sunset" format="localtime">XX:XX</span> Sunset
 		<span id="weather_plot" class="mqtt" topic="weather/forecast" update="weather_plot"></span>
 
-		<button onclick="window.location.reload()">Reload page</button>
 	</div>
 	<div id="lights" class="page" style="display: none;">
 		<!-- will be filled in by the script below -->
@@ -397,10 +397,10 @@ function video_restart(videoElement)
 		flvPlayer = null;
 	}
 
-	flvPlayer = flvjs.createPlayer({
+	flvPlayer = mpegts.createPlayer({
 		type: 'flv',
-		url: 'http://kremvax:9999/flv',
 		isLive: true,
+		url: 'http://kremvax:9999/flv',
         });
 
 	flvPlayer.on('error', (x) => {
@@ -418,7 +418,8 @@ function video_restart(videoElement)
 
 }
 
-if (flvjs.isSupported())
+//if (flvjs.isSupported())
+if (mpegts.getFeatureList().mseLivePlayback)
 {
 	video.addEventListener('ended', (x) => {
 		console.log("VIDEO ENDED", x);
