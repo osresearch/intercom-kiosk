@@ -121,11 +121,13 @@ def ffmpeg_stream(url):
 		"-an", # no audio
 		"-c:v", "h264",
 		"-intra", # iframe only
+		"-qp", "30",  # lower is higher quality
 		"-vf", "scale=800x480",
 		"-f", "flv",
 		"-",
 	],
-		stderr=sys.stderr,
+		stdin=subprocess.DEVNULL,
+		stderr=subprocess.DEVNULL, #sys.stderr,
 		stdout=subprocess.PIPE,
 		text=False
 	) as proc:
@@ -155,8 +157,6 @@ class CorsProxy(SimpleHTTPRequestHandler):
 		query = url.query
 		path = url.path[1:]  # strip leading /
 
-		print("GET path=", path)
-
 		if path == "":
 			self.send_response(302)
 			self.send_header('Location', 'html/automation.html')
@@ -179,6 +179,10 @@ class CorsProxy(SimpleHTTPRequestHandler):
 		self.send_header('Access-Control-Allow-Origin', '*')
 		self.end_headers()
 
+		# enable a timeout to see if we're failing
+		self.wfile._sock.settimeout(2)
+		
+
 		# wait for the FLV headers to be populated
 		while not flv_headers or not flv_headers[3]:
 			time.sleep(0.1)
@@ -190,14 +194,17 @@ class CorsProxy(SimpleHTTPRequestHandler):
 		last_timestamp = 0
 
 		while True:
+			# limit the frame rate for the Pis
+			time.sleep(0.05)
 			if last_timestamp == flv_last_timestamp:
-				time.sleep(0.01)
 				continue
 			last_timestamp = flv_last_timestamp
 			try:
 				chunk_write(self.wfile, flv_last_buf)
+				#time.sleep(0.05)
 			except Exception as e:
-				self.log_message("connection closed")
+				print("-----\n", e, file=sys.stderr)
+				self.log_message("---- connection closed")
 				return
 
 # create a thread for the http server
