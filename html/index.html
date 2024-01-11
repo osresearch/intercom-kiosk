@@ -402,10 +402,10 @@ function video_resize()
 let last_time = 0;
 function video_keepalive(videoElement)
 {
-	let now = flvPlayer.currentTime;
-	if (now != 0 && now == last_time)
+	let now = flvPlayer ? flvPlayer.currentTime : 0;
+	if (now == 0 || now == last_time)
 	{
-		console.log("STALE VIDEO", now);
+		console.log("RESTARTING VIDEO", now);
 		video_restart(videoElement);
 		return
 	}
@@ -435,7 +435,6 @@ function video_restart(videoElement)
 
 	flvPlayer.on('error', (x) => {
 		console.log("flv player failed, will try again in 5 seconds");
-		window.setTimeout(() => video_restart(videoElement), 5000);
 	})
 	
 	flvPlayer.attachMediaElement(videoElement);
@@ -443,12 +442,7 @@ function video_restart(videoElement)
         flvPlayer.load();
         flvPlayer.play().catch((e) => {
 		console.log("playback failed for some reason");
-		//window.setTimeout(() => video_restart(videoElement), 5000);
-		video_restart(videoElement);
 	});
-
-	// they hang every so often, so add a timer to restart
-	video_keepalive(videoElement);
 }
 
 //if (flvjs.isSupported())
@@ -456,11 +450,10 @@ if (mpegts.getFeatureList().mseLivePlayback)
 {
 	video.addEventListener('ended', (x) => {
 		console.log("VIDEO ENDED", x);
-		window.setTimeout(() => video_restart(video), 5000);
 	})
-	video_restart(video);
 
-	video.addEventListener("dbclick", (event) => video_restart(video));
+	// they hang every so often, so add a timer to restart
+	video_keepalive(video);
 }
 
 
