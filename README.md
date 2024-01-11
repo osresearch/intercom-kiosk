@@ -5,6 +5,19 @@ Reolink camera FLV video stream adapter.
 
 Pi startup scripts are in `/etc/xdg/lxsession/LXDE-pi/autostart`
 
+Remove unused daemons:
+```
+sudo tee <<EOF /etc/xdg/lxsession/LXDE-pi/autostart
+@xset s off
+@xset -dpms
+@xset -s noblank
+@chromium-browser --kiosk  --disable-pinch --remote-debugging-port=9222 http://kremvax:9999/html/index.html
+EOF
+sudo apt remove cups cups-daemon modemmanager colord triggerhappy
+sudo systemctl disable packagekit.service
+if ! grep -q disable-bt /boot/config.txt ; then echo dtoverlay=disable-bt | sudo tee -a /boot/config.txt ; fi
+```
+
 Pi needs `xdotool`
 
 
