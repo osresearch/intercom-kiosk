@@ -228,8 +228,7 @@ function page_show(name)
 			page.style.display = "none";
 	}
 
-	if (page_show_timeout)
-		window.clearTimeout(page_show_timeout);
+	window.clearTimeout(page_show_timeout);
 		
 	// return to the clock after a while at idle
 	if (name != "clock")
@@ -246,8 +245,9 @@ function brightness_update(when)
 	// 10 PM is yellow
 	// midnight is dark red
 	let color = document.body.style.color;
+	let sleep_time = 5;
 	let wakeup_time = 7;
-	let fade_time = 18;
+	let fade_time = 19;
 	let evening_time = 22;
 	let rgb1, rgb2;
 	let midnight = [64,0,0];
@@ -255,11 +255,18 @@ function brightness_update(when)
 	let evening = [200,200,0];
 	let video_brightness = 1;
 	
+	if (when < sleep_time)
+	{
+		rgb1 = midnight;
+		rgb2 = midnight;
+		scale = 1;
+		video_brightness = 0.3;
+	} else
 	if (when < wakeup_time)
 	{
 		rgb1 = midnight;
 		rgb2 = wakeup;
-		scale = (when - 0) / (wakeup_time - 0);
+		scale = (when - sleep_time) / (wakeup_time - sleep_time);
 		video_brightness = 0.3 + 0.7 * scale;
 	} else
 	if (when < fade_time)
@@ -286,7 +293,7 @@ function brightness_update(when)
 	let r = rgb2[0] * scale + rgb1[0] * (1 - scale);
 	let g = rgb2[1] * scale + rgb1[1] * (1 - scale);
 	let b = rgb2[2] * scale + rgb1[2] * (1 - scale);
-	document.body.style.color = "rgb("+r+","+g+","+b+")";
+	document.documentElement.style.setProperty("--text-color", "rgb("+r+","+g+","+b+")");
 
 	// apply this as a filter to the video too
 	document.getElementById("video").style.filter = "brightness(" + video_brightness + ")";
@@ -370,28 +377,48 @@ function video_resize()
 	let video_page = document.getElementById("video_page");
 	let video_button = document.getElementById("video_button");
 
+	window.clearTimeout(video_timeout);
+	window.clearTimeout(page_show_timeout);
+
 	if (video_fullscreen)
 	{
 		console.log("shrinking");
 		video_page.style.display = "none";
 		video_button.appendChild(video);
 		video_fullscreen = false;
-		window.clearTimeout(video_timeout);
 	} else {
 		//video.requestFullscreen();
 		console.log("full screen");
 		video_page.style.display = "block";
 		video_page.appendChild(video);
 		video_fullscreen = true;
-		video_timeout = window.setTimeout(video_resize, 10e3);
+
+
+		//video_timeout = window.setTimeout(video_resize, 30e3);
 	}
 }
 
+
+let last_time = 0;
+function video_keepalive(videoElement)
+{
+	let now = flvPlayer.currentTime;
+	if (now != 0 && now == last_time)
+	{
+		console.log("STALE VIDEO", now);
+		video_restart(videoElement);
+		return
+	}
+
+	last_time = now;
+	window.setTimeout(() => video_keepalive(videoElement), 1000);
+}
 
 function video_restart(videoElement)
 {
 	if (flvPlayer)
 	{
+		console.log("destroying player");
 		flvPlayer.unload();
 		flvPlayer.destroy();
 		flvPlayer = null;
@@ -400,8 +427,11 @@ function video_restart(videoElement)
 	flvPlayer = mpegts.createPlayer({
 		type: 'flv',
 		isLive: true,
+		liveSync: true,
+		autoCleanupSourceBuffer: true,
 		url: 'http://kremvax:9999/flv',
         });
+	console.log("created player", flvPlayer, videoElement);
 
 	flvPlayer.on('error', (x) => {
 		console.log("flv player failed, will try again in 5 seconds");
@@ -414,8 +444,11 @@ function video_restart(videoElement)
         flvPlayer.play().catch((e) => {
 		console.log("playback failed for some reason");
 		//window.setTimeout(() => video_restart(videoElement), 5000);
+		video_restart(videoElement);
 	});
 
+	// they hang every so often, so add a timer to restart
+	video_keepalive(videoElement);
 }
 
 //if (flvjs.isSupported())
