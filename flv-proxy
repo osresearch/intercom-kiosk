@@ -15,6 +15,8 @@ import sys
 import subprocess
 import time
 from threading import Thread
+from queue import Queue
+import uuid
 
 video_url = "https://10.1.0.175/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=user&password=viewer"
 
@@ -22,8 +24,6 @@ video_url = "https://10.1.0.175/flv?port=1935&app=bcs&stream=channel0_main.bcs&u
 # come in so that new clients can receive the header and meta data
 # and then whatever is the current video packet
 flv_headers = None
-flv_last_buf = None
-flv_last_timestamp = None
 
 
 def u32(buf):
@@ -59,11 +59,14 @@ def flv_parse(buf):
 			#"total_size": u32(buf[-4:]),
 		}
 
+# Each connection has a queue of video to process
+queues = {}
+
 # invoke ffmpeg to resize the stream into something more managable
 # this does involve parsing the FLV as it is produced so that we
 # can re-stream it to the client
 def flv_read(fp):
-	global flv_headers, flv_last_buf, flv_last_timestamp
+	global queues, flv_headers
 
 	# process the header specially
 	flv_header_buf = fp.read(9)
@@ -76,7 +79,13 @@ def flv_read(fp):
 
 	# and read the extra 4 bytes of length,
 	flv_header_buf += fp.read(4)
+
+	# store the FLV, metadta and one frame header
 	flv_headers = [flv_header_buf, None, None, None]
+
+	total_size = 0
+	last_report = time.time_ns()
+	first_report = True
 
 	while True:
 		pkt_buf = fp.read(11)
@@ -88,6 +97,8 @@ def flv_read(fp):
 		if pkt_header["type"] == 0x08:
 			# throw away the audio
 			continue
+
+		total_size += len(pkt_buf)
 
 		if pkt_header["type"] == 0x09:
 			# keep the ones that are of NAL type 0x17
@@ -103,8 +114,19 @@ def flv_read(fp):
 		if pkt_header["type"] == 0x12:
 			flv_headers[1] = pkt_buf
 		else:
-			flv_last_buf = pkt_buf
-			flv_last_timestamp = pkt_header["timestamp"]
+			for consumer,q in queues.items():
+				q.put(pkt_buf)
+
+		now = time.time_ns()
+		dt = now - last_report
+		if dt > 600e9 or (first_report and dt > 5e9):
+			# report the bandwidth every ten minutes
+			bandwidth = total_size * 8e9 / dt
+
+			print("%.3f kbit/sec" % (bandwidth/1000));
+			first_report = False
+			last_report = now
+			total_size = 0
 
 #
 # Use the local ffmpeg to transcode the 4k FLV stream from the
@@ -120,8 +142,8 @@ def ffmpeg_stream(url):
 		#"-c:a", "copy",
 		"-an", # no audio
 		"-c:v", "h264",
-		"-intra", # iframe only
-		"-qp", "30",  # lower is higher quality
+		#"-intra", # iframe only
+		"-qp", "15",  # lower is higher quality
 		"-vf", "scale=800x480",
 		"-f", "flv",
 		"-",
@@ -182,7 +204,6 @@ class CorsProxy(SimpleHTTPRequestHandler):
 		# enable a timeout to see if we're failing
 		self.wfile._sock.settimeout(2)
 		
-
 		# wait for the FLV headers to be populated
 		while not flv_headers or not flv_headers[3]:
 			time.sleep(0.1)
@@ -191,20 +212,23 @@ class CorsProxy(SimpleHTTPRequestHandler):
 			#print("sending header", hexlify(buf[0:16]), file=sys.stderr)
 			chunk_write(self.wfile, buf)
 			time.sleep(0.01)
-		last_timestamp = 0
+
+		# create a queue for myself
+		queue = Queue()
+		my_id = uuid.uuid4()
+		queues[my_id] = queue
 
 		while True:
 			# limit the frame rate for the Pis
-			time.sleep(0.05)
-			if last_timestamp == flv_last_timestamp:
-				continue
-			last_timestamp = flv_last_timestamp
+			pkt = queue.get()
 			try:
-				chunk_write(self.wfile, flv_last_buf)
+				chunk_write(self.wfile, pkt)
+				queue.task_done()
 				#time.sleep(0.05)
 			except Exception as e:
 				print("-----\n", e, file=sys.stderr)
 				self.log_message("---- connection closed")
+				del queues[my_id]
 				return
 
 # create a thread for the http server
