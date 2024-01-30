@@ -18,7 +18,7 @@ HOSTNAME="$(hostname)"
 
 if [ "$HOSTNAME" = "intercom3" ]; then
 	# very very dim
-	$DIR/bin/backlight 0.2
+	$DIR/bin/backlight 0.5
 else
 	$DIR/bin/backlight 50
 fi

@@ -10,7 +10,8 @@ if [ ! -z "$1" ]; then
 	brightness="$1"
 fi
 
-ddcutil setvcp 10 "$brightness"
+# round the HDMI brightness to nearest int
+ddcutil setvcp 10 "$(echo "$brightness 0.5 + 1/p"  | dc)"
 
 # and also set the PWM, if it is installed
 
