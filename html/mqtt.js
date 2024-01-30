@@ -285,7 +285,7 @@ function mqtt_create_button(container, topic, label, msg = '{}')
 	button.id = topic;
 	button.innerText = label;
 	button.className = "mqtt scene-button";
-	button.setAttribute("topic", sub_topic);
+	button.setAttribute("topic", ""); // do't actually subscribe sub_topic);
 	button.setAttribute("sendtopic", send_topic);
 	button.send_handler = () => { console.log("button", send_topic); return msg };
 	button.addEventListener('click', () => button.onchange());

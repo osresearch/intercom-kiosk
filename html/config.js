@@ -69,10 +69,10 @@ panel_configs = {
 		[ "stairs-3", "Stairs down" ],
 	],
 	"Scenes": [
-		[ "scene-worklights", "Work lights", "button" ],
 		[ "scene-intermission", "Intermission", "button" ],
+		[ "scene-movie", "Movie time", "button" ],
+		[ "scene-work", "Work lights", "button" ],
 		[ "scene-alloff", "All off", "button" ],
-		[ "scene-movietime", "Movie time", "button" ],
 		[ "/ir/projector", "Projector On", "button", "on" ],
 		[ "/ir/projector", "Projector Off", "button", "off" ],
 		[ "/denon/msg/send", "PS4", "button", "SIGAME" ],
