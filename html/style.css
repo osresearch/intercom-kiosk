@@ -2,6 +2,13 @@
 	--text-color: #fff;
 }
 
+@font-face {
+  font-family: 'B612';
+  font-style: normal;
+  font-weight: 400;
+  src: url(vendor/3JnySDDxiSz32jk.ttf) format('truetype');
+}
+
 body {
 	font-family: 'B612', serif;
 	font-weight: bold;
