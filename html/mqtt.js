@@ -107,10 +107,11 @@ function mqtt_bind()
 	mqtt_client.on('message', mqtt_process);
 }
 
-function mqtt_create_light(container, topic, label_text)
+function mqtt_create_light(container, topic, label_text, color_temp=false)
 {
 	let div = document.createElement("div");
 	div.className = "light-slider";
+	container.appendChild(div);
 	
 	let label = document.createElement("label");
 	label.setAttribute("for", topic);
@@ -127,10 +128,113 @@ function mqtt_create_light(container, topic, label_text)
 	input.setAttribute("list","markers");
 	input.setAttribute("topic", "zigbee/" + topic);
 	input.setAttribute("sendtopic", "zigbee/" + topic + "/set/brightness");
-	input.handler = (topic,msg) => input.value = msg.brightness;
+	input.handler = (topic,msg) => {
+		console.log(topic, msg);
+		input.value = (msg.state == "OFF" ? 0 : msg.brightness);
+	}
 	div.appendChild(input);
 
+	if (!color_temp)
+		return;
+
+	// add a color temp slider below the main one
+	let input2 = document.createElement("input");
+	input2.id = topic;
+	input2.type = "range";
+	input2.className = "mqtt";
+	input2.min = 250; // low numbers == blue, more bright
+	input2.max = 454; // high numbers == yellow, less bright
+	input2.style.direction = "rtl"; // invert the scale
+	input2.style.marginTop = "5vh";
+	input2.style.accentColor = "#ccc"; // no bar
+	input2.setAttribute("list","markers-colortemp");
+	input2.setAttribute("topic", "zigbee/" + topic);
+	input2.setAttribute("sendtopic", "zigbee/" + topic + "/set/color_temp");
+	input2.handler = (topic,msg) => input2.value = msg.color_temp;
+	div.appendChild(input2);
+}
+
+function mqtt_create_radiator(container, topic, label_text)
+{
+	let div = document.createElement("div");
+	div.className = "light-slider";
 	container.appendChild(div);
+	
+	let label = document.createElement("label");
+	label.setAttribute("for", topic);
+	label.innerText = label_text;
+	div.appendChild(label);
+	div.appendChild(document.createElement("br"));
+
+	// create a current temperature slider that will sit above
+	// the input widget
+	let ind = document.createElement("div");
+	ind.classList.add("radiator-temp");
+	ind.innerHTML = "&#9650;"; // upward triangle
+	ind.style.top = "55px";
+
+	let ind_demand = document.createElement("span");
+	//ind_demand.classList.add("radiator-temp");
+	//ind_demand.innerHTML = "&#9660;"; // downard triangle
+	//ind_demand.style.top = "30px";
+	ind_demand.style.color = "green";
+	ind_demand.style.fontSize = "22px";
+
+	// 
+	let input = document.createElement("input");
+	input.id = topic;
+	input.type = "range";
+	input.className = "mqtt";
+	input.min = 10;
+	input.max = 30;
+	input.setAttribute("list","markers-temp");
+	input.setAttribute("topic", "zigbee/" + topic);
+	input.setAttribute("sendtopic", "zigbee/" + topic + "/set/occupied_heating_setpoint");
+	input.handler = (topic,msg) => {
+		console.log(topic, msg);
+		input.value = msg.occupied_heating_setpoint;
+		ind.style.left = ((msg.local_temperature - input.min) / (input.max - input.min) * 100) + "%";
+
+		// make right pointing triangles based on the heating
+		// demand from the radiator
+		ind_demand.innerHTML = "&#9654;".repeat(msg.pi_heating_demand / 20);
+		//ind_demand.style.left = (msg.pi_heating_demand) + "%";
+		if (msg.pi_heating_demand < 10)
+			ind_demand.style.color = "blue";
+		else
+			ind_demand.style.color = "red";
+	}
+
+	div.appendChild(ind);
+	div.appendChild(input);
+	ind.appendChild(ind_demand);
+
+}
+
+function mqtt_create_blinds(container, topic, label_text)
+{
+	let div = document.createElement("div");
+	div.className = "light-slider";
+	container.appendChild(div);
+	
+	let label = document.createElement("label");
+	label.setAttribute("for", topic);
+	label.innerText = label_text;
+	div.appendChild(label);
+	div.appendChild(document.createElement("br"));
+
+	let input = document.createElement("input");
+	input.id = topic;
+	input.type = "range";
+	input.className = "mqtt";
+	input.min = 0;
+	input.max = 100;
+	input.setAttribute("list","markers-percent");
+	input.setAttribute("topic", "zigbee/" + topic);
+	input.setAttribute("sendtopic", "zigbee/" + topic + "/set/position");
+	input.handler = (topic,msg) => input.value = msg.position;
+
+	div.appendChild(input);
 }
 
 /*
@@ -168,16 +272,23 @@ function mqtt_create_outlet(container, topic, label)
 	container.appendChild(el);
 }
 
-function mqtt_create_button(container, topic, label)
+function mqtt_create_button(container, topic, label, msg = '{}')
 {
 	let button = document.createElement("button");
+	let sub_topic = "zigbee/" + topic;
+	let send_topic = sub_topic + "/set";
+
+	// explicit message? (ie, not a zigbee one)
+	if (topic[0] == '/')
+		send_topic = sub_topic = topic.substr(1)
+
 	button.id = topic;
 	button.innerText = label;
 	button.className = "mqtt scene-button";
-	button.setAttribute("topic", "zigbee/" + topic);
-	button.setAttribute("sendtopic", "zigbee/" + topic + "/set");
-	button.send_handler = () => "{}";
-
+	button.setAttribute("topic", sub_topic);
+	button.setAttribute("sendtopic", send_topic);
+	button.send_handler = () => { console.log("button", send_topic); return msg };
+	button.addEventListener('click', () => button.onchange());
 	container.appendChild(button);
 }
 

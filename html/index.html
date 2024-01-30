@@ -3,10 +3,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/flv.js/1.3.2/flv.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.0/dist/svg.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js"></script>
 <script src="https://unpkg.com/mqtt@5.3.3/dist/mqtt.min.js"></script>
 <script src="mpegts.js"></script>
 <script src="mqtt.js"></script>
-<script src="forecast.js"></script>
+<script src="config.js"></script>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet"
 	href="https://fonts.googleapis.com/css2?family=B612">
@@ -19,15 +20,34 @@
 	<option value="190"></option>
 	<option value="255"></option>
 </datalist>
+<datalist id="markers-colortemp">
+	<option value="250"></option>
+	<option value="352"></option>
+	<option value="454"></option>
+</datalist>
+<datalist id="markers-temp">
+	<option value="10"></option>
+	<option value="15"></option>
+	<option value="20"></option>
+	<option value="25"></option>
+	<option value="30"></option>
+</datalist>
+<datalist id="markers-percent">
+	<option value="0"></option>
+	<option value="25"></option>
+	<option value="50"></option>
+	<option value="75"></option>
+	<option value="100"></option>
+</datalist>
 
-<!-- Major displays at the top of the screen -->
-<div id="top">
-	<div id="clock" class="page">
-		<div id=time>HH:MM:SS</div>
-		<div id=date>YYYY-MM-DD</div>
+<!-- Full screen divs for the pages -->
+<div id="top" xxstyle="position: absolute; top: 0px; left: 0px; height: 100%; width: 100%;" style="width: 100%; height: 100%; background: #000; position: relative;">
+	<div id="default-page" class="page" style="background: #004; width: 100%; height: 100%; display: inline; position: absolute; top: 0px; left: 0px;">
+		<div id="shade" style="position: absolute; width: 100%; height: 100%; left: 0px; top: 0px; background: #300; opacity: 80%;" ></div>
+		<video id="video" width="100%" height="100%" style="object-fit: fill" />
 	</div>
 	<div id="weather" class="page" style="display: none;">
-		<button style="position: absolute; right: 800px; top: 0;" onclick="window.location.reload()">Reload page</button>
+		<button style="position: absolute; right: 400px; top: 0;" onclick="window.location.reload()">Reload page</button>
 		<span class="mqtt" topic="weather/current#main.temp" format="roundfunc(1)">XX.YY</span>&deg;C
 		(Feels like <span class="mqtt" topic="weather/current#main.feels_like" format="roundfunc(1)">xxx</span>&deg;C)
 		<br/>
@@ -43,34 +63,38 @@
 		<span id="weather_plot" class="mqtt" topic="weather/forecast" update="weather_plot"></span>
 
 	</div>
-	<div id="lights" class="page" style="display: none;">
-		<!-- will be filled in by the script below -->
+	<div id="power" class="page" style="display: none;">
+		Not yet implemented, sorry.
 	</div>
-	<div id="macros" class="page" style="display: none;">
-		<!-- will be filled in by the script below -->
-	</div>
-</div>
-<div id="video_page" class="page" style="display: none; position: absolute; top: 0px; left: 0px; height: 100%; width: 100%;">
-	<!-- will be filled in by the full screen script below -->
 </div>
 
-<!-- Selector buttons at the bottom of the screen -->
-<table width="100%" height="25%">
-<tr>
-<td width="25%" id="video_button" class="page-selector">
-	<video id="video" class="center" width="100%" height="100%" onclick="video_resize()" />
-</td>
-<td width="25%" onclick="page_show('lights')" class="page-selector">
+<!-- floating clock display -->
+<div id="clock" class="overlay" style="top: 0px; right: 0px; width: 40%; height: 45%;" onclick="document.documentElement.requestFullscreen(); new NoSleep().enable()">
+	<span>
+	<div id=time>HH:MM</div>
+	<div id=date>YYYY-MM-DD<br>Weekday</div>
+	</span>
+</div>
+
+<!-- buttons down the side -->
+<div id="buttons" style="position: absolute; top: 0px; left: 0px; width: 15%; height: 100%;">
+<div
+	onclick="page_show('power')"
+	id="mqtt-button"
+	class="overlay page-selector"
+	style="left: 0%; top: 0%;"
+>
 	<span class="mqtt" topic="p1meter/sensor/actual_consumption_sensor/state" format="(x)=>(x/1000).toFixed(1)">???</span> kW
-</td>
-<td width="25%" onclick="page_show('weather')" class="page-selector">
+</div>
+<div
+	onclick="page_show('weather')"
+	class="overlay page-selector"
+	style="left: 0%; top: 16%;"
+>
 	<span class="mqtt" topic="weather/current#main.temp" format="roundfunc(1)">XX</span>&deg;C</td>
-<td width="25%" onclick="page_show('macros')" class="page-selector">Macros</td>
-</tr>
-</table>
+</div>
+</div>
 
-
-<!-- <div id="lights" style="width: 800px; height: 400px; background: #111; white-space: nowrap;" /> -->
 
 <script src="intercom.js"></script>
 </html>

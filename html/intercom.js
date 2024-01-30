@@ -1,6 +1,14 @@
 /*
  *
  */
+var noSleep = new NoSleep();
+function fullscreen()
+{
+	document.getElementById("time").innerHTML = noSleep;
+	document.documentElement.requestFullscreen();
+	noSleep.enable();
+}
+
 function localtime(epoch)
 {
 	return new Date(epoch * 1000).toTimeString().substr(0,8);
@@ -157,10 +165,19 @@ function page_show(name)
 	}
 
 	window.clearTimeout(page_show_timeout);
-		
-	// return to the clock after a while at idle
-	if (name != "clock")
-		page_show_timeout = window.setTimeout(() => page_show("clock"), 10e3);
+
+	if (name != "default-page")
+	{
+		// hide the clock and buttons
+		document.getElementById("clock").style.display = "none";
+		document.getElementById("buttons").style.display = "none";
+
+		// schedule to return to the clock after a while at idle
+		page_show_timeout = window.setTimeout(() => page_show("default-page"), 10e3);
+	} else {
+		document.getElementById("clock").style.display = "flex";
+		document.getElementById("buttons").style.display = "block";
+	}
 }
 
 
@@ -178,30 +195,31 @@ function brightness_update(when)
 	let fade_time = 19;
 	let evening_time = 22;
 	let rgb1, rgb2;
-	let midnight = [64,0,0];
+	let midnight = [128,0,0];
 	let wakeup = [255,255,255];
 	let evening = [200,200,0];
-	let video_brightness = 1;
+	let video_opacity = 0;
 	
 	if (when < sleep_time)
 	{
 		rgb1 = midnight;
 		rgb2 = midnight;
 		scale = 1;
-		video_brightness = 0.3;
+		video_opacity = 0.75;
 	} else
 	if (when < wakeup_time)
 	{
 		rgb1 = midnight;
 		rgb2 = wakeup;
 		scale = (when - sleep_time) / (wakeup_time - sleep_time);
-		video_brightness = 0.3 + 0.7 * scale;
+		video_opacity = 0.75 * (1 - scale);
 	} else
 	if (when < fade_time)
 	{
 		// wakeup colors all day
 		rgb1 = wakeup;
 		rgb2 = wakeup;
+		video_opacity = 0;
 		scale = 1;
 	} else
 	if (when < evening_time)
@@ -209,13 +227,13 @@ function brightness_update(when)
 		rgb1 = wakeup
 		rgb2 = evening
 		scale = (when - fade_time) / (evening_time - fade_time);
-		video_brightness = 0.6 + 0.4 * (1 - scale);
+		video_opacity = 0.0 + 0.45 * scale;
 	} else
 	{
 		rgb1 = evening;
 		rgb2 = midnight;
 		scale = (when - evening_time) / (24 - evening_time);
-		video_brightness = 0.3 + 0.3 * (1 - scale);
+		video_opacity = 0.45 + 0.3 * scale;
 	}
 
 	let r = rgb2[0] * scale + rgb1[0] * (1 - scale);
@@ -223,24 +241,98 @@ function brightness_update(when)
 	let b = rgb2[2] * scale + rgb1[2] * (1 - scale);
 	document.documentElement.style.setProperty("--text-color", "rgb("+r+","+g+","+b+")");
 
-	// apply this as a filter to the video too
-	document.getElementById("video").style.filter = "brightness(" + video_brightness + ")";
+	// add a shade effect in front of the video to make it more
+	// night vision compatible
+	document.getElementById("shade").style.opacity = video_opacity;
 }
 
-function time_update()
-{
+const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+window.setInterval(() => {
 	const now = new Date();
 	document.getElementById("time").innerText = now.toTimeString().substr(0,5);
-	document.getElementById("date").innerText = now.toISOString().substr(0,10);
-	brightness_update(now.getHours() + now.getMinutes()/60);
-
-	window.setTimeout(time_update, 10000);
+	document.getElementById("date").innerHTML = now.toISOString().substr(0,10) + "<br/>" + days[now.getDay()];
 
 	// update the font color based on the time of day
-}
-time_update();
-	
+	brightness_update(now.getHours() + now.getMinutes()/60);
 
+}, 10e3);
+
+let buttons = document.getElementById("buttons");
+let pages = document.getElementById("top");
+let config = panel_configs[document.location.hash];
+if (!config) {
+	console.log("no config, using defaults!");
+	config = {
+		"Scenes": [
+			[ "scene-alloff", "All off", "button" ],
+		],
+	};
+}
+
+let y_offset = 32;
+for(let button_label in config)
+{
+	// create a top level button for this button
+	let button = document.createElement("div");
+	button.innerText = button_label;
+	button.classList.add("overlay");
+	button.classList.add("page-selector");
+	button.style.left = "0%";
+	button.style.top = y_offset + "%";
+	button.onclick = () => page_show(button_label);
+	buttons.appendChild(button);
+	y_offset += 16;
+
+	let page = document.createElement("div");
+	page.classList.add("page");
+	page.style.display = "none";
+	page.id = button_label;
+	pages.appendChild(page);
+
+	let details = config[button_label];
+	if (typeof(details) == 'string')
+	{
+		// make the click send the topic instead
+		button.onclick = () => mqtt_client.publish(details, "{}");
+	} else
+	for(let item of config[button_label])
+	{
+		let topic = item[0];
+		let label = item[1];
+		let type = item[2];
+		let msg = item[3];
+		if (!type)
+			type = "light";
+
+		if (type == "light")
+		{
+			mqtt_create_light(page, topic, label, false);
+		} else
+		if (type == "colortemp")
+		{
+			mqtt_create_light(page, topic, label, true);
+		} else
+		if (type == "radiator")
+		{
+			mqtt_create_radiator(page, topic, label);
+		} else
+		if (type == "blinds")
+		{
+			mqtt_create_blinds(page, topic, label);
+		} else
+		if (type == "outlet")
+		{
+			mqtt_create_outlet(page, topic, label);
+		} else
+		if (type == "button")
+		{
+			mqtt_create_button(page, topic, label, msg);
+		} else {
+			console.log("unknown macro type", type);
+		}
+	}
+}
+/*
 let lights = document.getElementById("lights");
 
 for(let light of [
@@ -248,14 +340,6 @@ for(let light of [
 	["light-1-kitchen", "Kitchen"],
 	["light-1-dining", "Dining"],
 	["light-0-entry", "Entry"],
-/*
-	["light-2-office", "Office"],
-	["light-2-craftroom", "Craft room"],
-	["light-3-bedroom", "Bedroom"],
-	["light-3-closet", "Closet"],
-	["light-3-shower", "Shower"],
-	["light-3-bathroom", "WC"],
-*/
 ])
 {
 	mqtt_create_light(lights, light[0], light[1]);
@@ -267,7 +351,6 @@ for(let outlet of ["outlet-3-amps"])
 }
 
 
-let macros = document.getElementById("macros");
 for(let scene of [
 	["guests", "Entryway"],
 	["alloff", "All Off"],
@@ -279,57 +362,35 @@ for(let scene of [
 {
 	mqtt_create_button(macros, scene[0], scene[1]);
 }
+*/
+
 
 mqtt_bind()
 
 
-// toggle between a small and large video feed
-let video_fullscreen = false;
-let video_timeout = null;
+// keep the video going, even if it times out
 let flvPlayer = null;
-
-function video_resize()
-{
-	let video = document.getElementById("video");
-	let video_page = document.getElementById("video_page");
-	let video_button = document.getElementById("video_button");
-
-	window.clearTimeout(video_timeout);
-	window.clearTimeout(page_show_timeout);
-
-	if (video_fullscreen)
-	{
-		console.log("shrinking");
-		video_page.style.display = "none";
-		video_button.appendChild(video);
-		video_fullscreen = false;
-	} else {
-		//video.requestFullscreen();
-		console.log("full screen");
-		video_page.style.display = "block";
-		video_page.appendChild(video);
-		video_fullscreen = true;
-
-
-		//video_timeout = window.setTimeout(video_resize, 30e3);
-	}
-}
-
-
 let last_time = 0;
 function video_keepalive(videoElement)
 {
 	let now = flvPlayer ? flvPlayer.currentTime : 0;
-	if (now == 0 || now == last_time)
+	if (flvPlayer && now != last_time)
 	{
-		console.log("RESTARTING VIDEO", now);
-		video_restart(videoElement);
-		return
+		// everything good, keep watching
+		last_time = now;
+		//window.setTimeout(() => video_keepalive(videoElement), 1000);
+		return;
 	}
 
-	last_time = now;
-	window.setTimeout(() => video_keepalive(videoElement), 1000);
+	// not good, restart it.
+	console.log("RESTARTING VIDEO", now);
+	video_restart(videoElement);
+
+	// give it a few seconds to restart
+	//window.setTimeout(() => video_keepalive(videoElement), 5000);
 }
+
+let retry_count = 0;
 
 function video_restart(videoElement)
 {
@@ -346,12 +407,18 @@ function video_restart(videoElement)
 		isLive: true,
 		liveSync: true,
 		autoCleanupSourceBuffer: true,
-		url: 'http://kremvax:9999/flv',
+		enableStashBuffer: false,
+		url: 'http://kremvax:9999/flv?' + retry_count,
         });
+
 	console.log("created player", flvPlayer, videoElement);
+	retry_count++;
 
 	flvPlayer.on('error', (x) => {
 		console.log("flv player failed, will try again in 5 seconds");
+		if (flvPlayer)
+			flvPlayer.destroy();
+		flvPlayer = null;
 	})
 	
 	flvPlayer.attachMediaElement(videoElement);
@@ -359,6 +426,9 @@ function video_restart(videoElement)
         flvPlayer.load();
         flvPlayer.play().catch((e) => {
 		console.log("playback failed for some reason");
+		if (flvPlayer)
+			flvPlayer.destroy();
+		flvPlayer = null;
 	});
 }
 
@@ -370,5 +440,5 @@ if (mpegts.getFeatureList().mseLivePlayback)
 	})
 
 	// they hang every so often, so add a timer to restart
-	video_keepalive(video);
+	window.setInterval(video_keepalive, 2000, video);
 }
