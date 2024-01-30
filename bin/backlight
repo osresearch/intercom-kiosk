@@ -1,0 +1,37 @@
+#!/bin/sh
+# Configure the backlight from 1 to 100 (floating point)
+# TODO: handle DSI displays that expose /sys/class/backlight
+
+die() { echo >&2 "$*" ; exit 1 ; }
+
+brightness=50
+
+if [ ! -z "$1" ]; then
+	brightness="$1"
+fi
+
+ddcutil setvcp 10 "$brightness"
+
+# and also set the PWM, if it is installed
+
+SYSFS=/sys/class/pwm/pwmchip0
+
+if [ ! -d "$SYSFS" ]; then
+	sudo dtoverlay pwm || die "dtoverlay pwm failed"
+fi
+
+if [ ! -d "$SYSFS" ]; then
+	die "$SYSFS: does not exist?"
+fi
+
+if [ ! -d "$SYSFS/pwm0" ]; then
+	echo 0 > "$SYSFS/export" || die "export failed"
+fi
+
+# 1 KHz == 1 million nanoseconds
+echo 1000000 > "$SYSFS/pwm0/period"
+
+# scale the brightness from 0-100 to 0-million
+echo "$brightness 10000 * 1/p" | dc > "$SYSFS/pwm0/duty_cycle"
+echo 1 > "$SYSFS/pwm0/enable"
+

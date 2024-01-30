@@ -5,13 +5,17 @@ export LC_ALL=C
 # remove unused packages
 sudo apt update
 sudo apt remove -y cups cups-daemon modemmanager colord triggerhappy system-config-printer
-sudo apt install -y firefox-esr xdotool
+sudo apt install -y firefox-esr xdotool ddcutil
 sudo apt autoremove -y
 sudo systemctl disable packagekit.service
 
 # Stop bluetooth from starting
 if ! grep -q disable-bt /boot/config.txt ; then
 	echo dtoverlay=disable-bt | sudo tee -a /boot/config.txt
+fi
+# enable pwm for backlight control
+if ! grep -q pwm /boot/config.txt ; then
+	echo dtoverlay=pwm | sudo tee -a /boot/config.txt
 fi
 
 # Turn off the cursor in X

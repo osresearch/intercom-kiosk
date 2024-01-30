@@ -1,6 +1,7 @@
 #!/bin/sh
 # TODO: have default path specified on /boot somewhere
 # TODO: ensure network is up first
+# TODO: startup the backlight based on time of day
 DIR="$(dirname $0)"
 DIR="$(realpath "$DIR/..")"
 
@@ -12,6 +13,15 @@ fi
 xset s off
 xset -dpms
 xset s noblank
+
+HOSTNAME="$(hostname)"
+
+if [ "$HOSTNAME" = "intercom3" ]; then
+	# very very dim
+	$DIR/bin/backlight 0.2
+else
+	$DIR/bin/backlight 50
+fi
 
 exec firefox-esr \
 	--kiosk \
