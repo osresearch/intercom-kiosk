@@ -3,7 +3,8 @@
 export LC_ALL=C
 
 # remove unused packages
-sudo apt remove -y cups cups-daemon modemmanager colord triggerhappy
+sudo apt update
+sudo apt remove -y cups cups-daemon modemmanager colord triggerhappy system-config-printer
 sudo apt install -y firefox-esr xdotool
 sudo apt autoremove -y
 sudo systemctl disable packagekit.service
