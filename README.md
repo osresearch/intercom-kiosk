@@ -7,18 +7,24 @@ Pi startup scripts are in `/etc/xdg/lxsession/LXDE-pi/autostart`
 
 Remove unused daemons:
 ```
+export LC_ALL=C
+sudo apt remove -y cups cups-daemon modemmanager colord triggerhappy
+sudo apt install -y firefox-esr xdotool
+sudo apt autoremove -y
+sudo systemctl disable packagekit.service
+```
+
+Setup startup scripts and configure X:
+```
+sudo perl -pi -e 's/#xserver-command=X/xserver-command=X -nocursor/' /etc/lightdm/lightdm.conf
+if ! grep -q disable-bt /boot/config.txt ; then echo dtoverlay=disable-bt | sudo tee -a /boot/config.txt ; fi
 sudo tee <<EOF /etc/xdg/lxsession/LXDE-pi/autostart
 @xset s off
 @xset -dpms
 @xset -s noblank
-@chromium-browser --kiosk  --disable-pinch --remote-debugging-port=9222 http://kremvax:9999/html/index.html
+@firefox-esr --kiosk  --disable-pinch --remote-debugging-port=9222 http://kremvax:9999/html/index.html#office
 EOF
-sudo apt remove cups cups-daemon modemmanager colord triggerhappy
-sudo systemctl disable packagekit.service
-if ! grep -q disable-bt /boot/config.txt ; then echo dtoverlay=disable-bt | sudo tee -a /boot/config.txt ; fi
 ```
-
-Pi needs `xdotool`
 
 
 ```
