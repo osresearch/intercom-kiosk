@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ -z "$DISPLAY" ]; then
+export DISPLAY=:0.0
+fi
+
+xdotool key ctrl+F5

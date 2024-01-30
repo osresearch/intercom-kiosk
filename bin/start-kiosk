@@ -1,0 +1,19 @@
+#!/bin/sh
+# TODO: have default path specified on /boot somewhere
+# TODO: ensure network is up first
+# TODO: have local files on /boot instead
+if [ -z "$DISPLAY" ]; then
+	export DISPLAY=:0.0
+	export LC_ALL=C
+fi
+
+xset s off
+xset -dpms
+xset s noblank
+sleep 3
+
+exec firefox-esr \
+	--kiosk \
+	--disable-pinch \
+	--remote-debugging-port=9222 \
+	"http://10.0.0.1:9999/html/index.html#$(hostname)"

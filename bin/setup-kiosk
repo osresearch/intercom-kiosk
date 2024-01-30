@@ -1,0 +1,22 @@
+#!/bin/sh -x
+# Setup a kiosk pi
+export LC_ALL=C
+
+# remove unused packages
+sudo apt remove -y cups cups-daemon modemmanager colord triggerhappy
+sudo apt install -y firefox-esr xdotool
+sudo apt autoremove -y
+sudo systemctl disable packagekit.service
+
+# Stop bluetooth from starting
+if ! grep -q disable-bt /boot/config.txt ; then
+	echo dtoverlay=disable-bt | sudo tee -a /boot/config.txt
+fi
+
+# Turn off the cursor in X
+sudo perl -pi -e 's/#xserver-command=X/xserver-command=X -nocursor/' /etc/lightdm/lightdm.conf
+
+# auto start the kiosk on each boot
+sudo tee <<EOF /etc/xdg/lxsession/LXDE-pi/autostart
+@/home/pi/kiosk/bin/start-kiosk
+EOF
