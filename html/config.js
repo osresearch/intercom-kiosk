@@ -1,5 +1,5 @@
 panel_configs = {
-"#stairs-1": {
+"#intercom1": {
 	"Lights": [
 		[ "light-1-spheres", "Table" ],
 		[ "light-1-kitchen", "Kitchen" ],
@@ -34,7 +34,7 @@ panel_configs = {
 	],
 	"#2 off": "zigbee/scene-2-off/set",
 },
-"#bedroom": {
+"#intercom3": {
 	"Lights": [
 		[ "light-3-bedroom", "Main" ],
 		[ "light-3-closet", "Closet" ],
@@ -57,7 +57,7 @@ panel_configs = {
 	],
 	"#3 off": "zigbee/scene-3-off/set",
 },
-"#theater": {
+"#intercom4": {
 	"Lights": [
 		[ "light-4-sink", "Pantry" ],
 		[ "light-4-north", "North" ],
@@ -80,7 +80,7 @@ panel_configs = {
 	],
 	"#4 off": "zigbee/scene-4-off/set",
 },
-"#entry": {
+"#intercom0": {
 	"Lights": [
 		[ "light-0-entry", "Entry" ],
 		[ "scene-alloff", "All off", "button" ],
