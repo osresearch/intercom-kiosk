@@ -14,6 +14,7 @@ import requests
 import sys
 import subprocess
 import time
+from datetime import datetime
 from threading import Thread
 from queue import Queue
 import uuid
@@ -123,7 +124,13 @@ def flv_read(fp):
 			# report the bandwidth every ten minutes
 			bandwidth = total_size * 8e9 / dt
 
-			print("%.3f kbit/sec" % (bandwidth/1000));
+			# generate a report of queue depths
+			stats = []
+			for consumer,q in queues.items():
+				stats.append(q.qsize())
+				pass
+
+			print(datetime.now().isoformat(), "%.3f kbit/sec" % (bandwidth/1000), stats)
 			first_report = False
 			last_report = now
 			total_size = 0
@@ -146,6 +153,11 @@ def ffmpeg_stream(url):
 		"-qp", "15",  # lower is higher quality
 		"-vf", "scale=800x480",
 		"-f", "flv",
+		"-tune", "zerolatency",
+		"-preset", "ultrafast",
+		#"-fflags", "nobuffer",
+		#"-flags", "low_delay",
+		#"-framedrop",
 		"-",
 	],
 		stdin=subprocess.DEVNULL,
@@ -202,7 +214,7 @@ class CorsProxy(SimpleHTTPRequestHandler):
 		self.end_headers()
 
 		# enable a timeout to see if we're failing
-		self.wfile._sock.settimeout(2)
+		self.wfile._sock.settimeout(5)
 		
 		# wait for the FLV headers to be populated
 		while not flv_headers or not flv_headers[3]:
@@ -219,14 +231,15 @@ class CorsProxy(SimpleHTTPRequestHandler):
 		queues[my_id] = queue
 
 		while True:
-			# limit the frame rate for the Pis
 			pkt = queue.get()
 			try:
 				chunk_write(self.wfile, pkt)
 				queue.task_done()
+
+				# limit the frame rate for the Pis
 				#time.sleep(0.05)
 			except Exception as e:
-				print("-----\n", e, file=sys.stderr)
+				print("----- error \n", e, file=sys.stderr)
 				self.log_message("---- connection closed")
 				del queues[my_id]
 				return
@@ -236,5 +249,10 @@ server_address = ('10.0.0.1', 9999)
 httpd = ThreadingHTTPServer(server_address, CorsProxy)
 Thread(target=httpd.serve_forever).start()
 
-ffmpeg_stream(video_url)
+while True:
+	try:
+		ffmpeg_stream(video_url)
+	except Exception as e:
+		print("----- ffmpeg failed: ", e, file=sys.stderr)
+	time.sleep(1)
 #flv_read(sys.stdin.buffer)
