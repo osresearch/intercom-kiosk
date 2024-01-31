@@ -1,0 +1,5 @@
+#!/bin/sh
+# Force a wifi re-scan by turning off the wifi and back on
+rfkill block 0
+sleep 2
+rfkill unblock 0
