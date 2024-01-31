@@ -1,0 +1,5 @@
+#!/bin/sh
+DIR="$(dirname $0)"
+
+cd $DIR/..
+git pull && ./bin/reload-chrome
