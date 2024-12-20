@@ -17,7 +17,8 @@ xset s noblank
 HOSTNAME="$(hostname)"
 
 if [ "$HOSTNAME" = "intercom3" ]; then
-	# very very dim
+	# very very dim. do it twice just in case
+	$DIR/bin/backlight 0.5
 	$DIR/bin/backlight 0.5
 else
 	$DIR/bin/backlight 50
