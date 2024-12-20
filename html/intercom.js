@@ -294,7 +294,14 @@ for(let button_label in config)
 	{
 		// make the click send the topic instead
 		button.onclick = () => mqtt_client.publish(details, "{}");
-	} else
+	} else {
+		// add the back button for holly
+		let back = document.createElement("div");
+		back.classList.add("overlay");
+		back.style = "bottom: 0px; right: 0px; width: 25%; height: 10%;";
+		back.onclick = () => page_show("default-page");
+		back.innerText = "Back";
+		page.appendChild(back);
 	for(let item of config[button_label])
 	{
 		let topic = item[0];
@@ -330,6 +337,7 @@ for(let button_label in config)
 		} else {
 			console.log("unknown macro type", type);
 		}
+	}
 	}
 }
 /*
@@ -432,6 +440,7 @@ function video_restart(videoElement)
 	});
 }
 
+/*
 //if (flvjs.isSupported())
 if (mpegts.getFeatureList().mseLivePlayback)
 {
@@ -442,3 +451,15 @@ if (mpegts.getFeatureList().mseLivePlayback)
 	// they hang every so often, so add a timer to restart
 	window.setInterval(video_keepalive, 2000, video);
 }
+*/
+
+/* Replace the 'rs=...' part of the URL with the current time */
+const rs_re = /&rs=[^&]+/;
+function reload_image(img)
+{
+	var d = new Date;
+	img.src = img.src.replace(rs_re, '&rs='+d.toISOString())
+}
+
+window.setInterval(reload_image, 1000, document.getElementById('garage'));
+window.setInterval(reload_image, 1000, document.getElementById('frontdoor'));
