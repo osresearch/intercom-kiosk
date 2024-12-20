@@ -19,7 +19,7 @@ from threading import Thread
 from queue import Queue
 import uuid
 
-video_url = "https://10.1.0.175/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=user&password=viewer"
+video_url = "https://frontdoor/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=user&password=viewer"
 
 # the ffmpeg decoding thread will cache the packets as they
 # come in so that new clients can receive the header and meta data
@@ -66,7 +66,7 @@ queues = {}
 # invoke ffmpeg to resize the stream into something more managable
 # this does involve parsing the FLV as it is produced so that we
 # can re-stream it to the client
-def flv_read(fp):
+def flv_read(fp, watchdog):
 	global queues, flv_headers
 
 	# process the header specially
@@ -115,6 +115,7 @@ def flv_read(fp):
 		if pkt_header["type"] == 0x12:
 			flv_headers[1] = pkt_buf
 		else:
+			watchdog[0] += 1
 			for consumer,q in queues.items():
 				q.put(pkt_buf)
 
@@ -134,6 +135,16 @@ def flv_read(fp):
 			first_report = False
 			last_report = now
 			total_size = 0
+
+def watcher(proc, watchdog):
+	last_watchdog = watchdog[0]
+	while True:
+		time.sleep(5)
+		if last_watchdog == watchdog[0]:
+			break;
+		last_watchdog = watchdog[0]
+	print("WATCHDOG TRIGGERED", file=sys.stderr)
+	proc.kill()
 
 #
 # Use the local ffmpeg to transcode the 4k FLV stream from the
@@ -165,7 +176,9 @@ def ffmpeg_stream(url):
 		stdout=subprocess.PIPE,
 		text=False
 	) as proc:
-		flv_read(proc.stdout)
+		watchdog = [0]
+		Thread(target=watcher, args=(proc, watchdog)).start()
+		flv_read(proc.stdout, watchdog)
 
 
 ################
