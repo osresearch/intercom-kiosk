@@ -21,6 +21,11 @@ fi
 # Turn off the cursor in X
 sudo perl -pi -e 's/#xserver-command=X/xserver-command=X -nocursor/' /etc/lightdm/lightdm.conf
 
+# schedule a reboot every night
+sudo crontab - << EOF
+30  3     * * *   root    reboot
+EOF
+
 # auto start the kiosk on each boot
 sudo tee <<EOF /etc/xdg/lxsession/LXDE-pi/autostart
 @/home/pi/kiosk/bin/start-kiosk
