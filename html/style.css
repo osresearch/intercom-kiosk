@@ -166,3 +166,10 @@ input[type="range"] {
 	color: #fff;
 	border: 0px;
 }
+
+.halfscreen {
+	width: 50%;
+	height: 100%;
+	object-fit: cover;
+	object-position: center center;
+}
