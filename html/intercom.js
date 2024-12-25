@@ -247,15 +247,18 @@ function brightness_update(when)
 }
 
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-window.setInterval(() => {
+function time_update()
+{
 	const now = new Date();
 	document.getElementById("time").innerText = now.toTimeString().substr(0,5);
-	document.getElementById("date").innerHTML = now.toISOString().substr(0,10) + "<br/>" + days[now.getDay()];
+	document.getElementById("date").innerHTML = now.toISOString().substr(0,10) + " " + days[now.getDay()];
 
 	// update the font color based on the time of day
 	brightness_update(now.getHours() + now.getMinutes()/60);
+}
 
-}, 10e3);
+window.setInterval(time_update, 10e3);
+time_update();
 
 let buttons = document.getElementById("buttons");
 let pages = document.getElementById("top");
