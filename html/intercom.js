@@ -171,12 +171,14 @@ function page_show(name)
 		// hide the clock and buttons
 		document.getElementById("clock").style.display = "none";
 		document.getElementById("buttons").style.display = "none";
+		document.getElementById("buttons2").style.display = "none";
 
 		// schedule to return to the clock after a while at idle
 		page_show_timeout = window.setTimeout(() => page_show("default-page"), 10e3);
 	} else {
 		document.getElementById("clock").style.display = "flex";
 		document.getElementById("buttons").style.display = "block";
+		document.getElementById("buttons2").style.display = "block";
 	}
 }
 
