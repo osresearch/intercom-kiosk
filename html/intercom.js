@@ -261,6 +261,7 @@ window.setInterval(time_update, 10e3);
 time_update();
 
 let buttons = document.getElementById("buttons");
+let buttons2 = document.getElementById("buttons2");
 let pages = document.getElementById("top");
 let config = panel_configs[document.location.hash];
 if (!config) {
@@ -272,19 +273,32 @@ if (!config) {
 	};
 }
 
-let y_offset = 32;
+let y1_offset = 32; // two default buttons
+let y2_offset = 0; // no default buttons
 for(let button_label in config)
 {
 	// create a top level button for this button
 	let button = document.createElement("div");
-	button.innerText = button_label;
 	button.classList.add("overlay");
 	button.classList.add("page-selector");
-	button.style.left = "0%";
-	button.style.top = y_offset + "%";
 	button.onclick = () => page_show(button_label);
-	buttons.appendChild(button);
-	y_offset += 16;
+
+	if (button_label.startsWith("-"))
+	{
+		// right side
+		button.innerText = button_label.substr(1);
+		button.style.left = "0%";
+		button.style.top = y2_offset + "%";
+		buttons2.appendChild(button);
+		y2_offset += 16;
+	} else {
+		// left side
+		button.innerText = button_label;
+		button.style.left = "0%";
+		button.style.top = y1_offset + "%";
+		buttons.appendChild(button);
+		y1_offset += 16;
+	}
 
 	let page = document.createElement("div");
 	page.classList.add("page");
@@ -296,7 +310,10 @@ for(let button_label in config)
 	if (typeof(details) == 'string')
 	{
 		// make the click send the topic instead
-		button.onclick = () => mqtt_client.publish(details, "{}");
+		let words = details.split('=');
+		let topic = words[0];
+		let args = words.length > 1 ? words.slice(1).join("=") : "{}";
+		button.onclick = () => { console.log(topic,args); mqtt_client.publish(topic, args) };
 	} else {
 		// add the back button for holly
 		let back = document.createElement("div");

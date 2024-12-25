@@ -18,7 +18,9 @@ panel_configs = {
 		[ "radiator-1-north", "Bench radiator", "radiator" ],
 		[ "outlet-amps", "Amps", "outlet" ],
 	],
-	"#1 off": "zigbee/scene-1-off/set",
+	"-#1 off": "zigbee/scene-1-off/set",
+	"-Breakfast": "zigbee/scene-1-breakfast/set",
+	"-Dinner": "zigbee/scene-1-dinner/set",
 },
 "#intercom2": {
 	"Lights": [
@@ -39,7 +41,9 @@ panel_configs = {
 		[ "radiator-2-office", "Office Radiator", "radiator" ],
 		[ "outlet-amps", "Amps", "outlet" ],
 	],
-	"#2 off": "zigbee/scene-2-off/set",
+	"-#2 Off": "zigbee/scene-2-off/set",
+	"-#2 On": "zigbee/scene-2-bright/set",
+	"-Office": 'zigbee/light-2-office/set/state=TOGGLE',
 },
 "#intercom3": {
 	"Lights": [
@@ -65,7 +69,8 @@ panel_configs = {
 		[ "radiator-3-notbed", "Window radiator", "radiator" ],
 		[ "radiator-3-bay", "Bay radiator", "radiator" ],
 	],
-	"#3 off": "zigbee/scene-3-off/set",
+	"-#3 Off": "zigbee/scene-3-off/set",
+	"-#3 On": "zigbee/scene-3-bright/set",
 },
 "#intercom4": {
 	"Lights": [
@@ -91,7 +96,10 @@ panel_configs = {
 	"Heat": [
 		[ "radiator-4-pantry", "Radiator", "radiator" ],
 	],
-	"#4 off": "zigbee/scene-4-off/set",
+	"-#4 Off": "zigbee/scene-4-off/set",
+	"-#4 On": "zigbee/scene-work/set",
+	"-Intermission": "zigbee/scene-intermission/set",
+	"-Movie": "zigbee/scene-movie/set",
 },
 "#intercom0": {
 	"Lights": [
