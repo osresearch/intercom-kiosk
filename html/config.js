@@ -18,8 +18,8 @@ panel_configs = {
 		[ "radiator-1-north", "Bench radiator", "radiator" ],
 		[ "outlet-amps", "Amps", "outlet" ],
 	],
-	"-#1 off": "zigbee/scene-1-off/set",
-	"-Breakfast": "zigbee/scene-1-breakfast/set",
+	"-#1 Off": "zigbee/scene-1-off/set",
+	"-#1 On": "zigbee/scene-1-breakfast/set",
 	"-Dinner": "zigbee/scene-1-dinner/set",
 },
 "#intercom2": {
@@ -98,7 +98,7 @@ panel_configs = {
 	],
 	"-#4 Off": "zigbee/scene-4-off/set",
 	"-#4 On": "zigbee/scene-work/set",
-	"-Intermission": "zigbee/scene-intermission/set",
+	"-Night": "zigbee/scene-intermission/set",
 	"-Movie": "zigbee/scene-movie/set",
 },
 "#intercom0": {
